@@ -17,12 +17,12 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Internal modules
+# Εσωτερικά modules
 from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# Securely load token from environment
+# Φόρτωση TOKEN από περιβάλλον
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("BOT_TOKEN is not set in environment variables.")
@@ -30,27 +30,31 @@ if not TOKEN:
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
 
-# Logging config
+# Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# Init Telegram app
+# Init εφαρμογής Telegram
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# Basic commands
+# Εντολές
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to NOVAXA_BOT v2.0 — powered by webhook!")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Status: Online and stable.")
 
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Available commands: /start, /status, /help")
+
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("status", status))
+application.add_handler(CommandHandler("help", help_cmd))
 
-# Core enhanced class (from Manus)
+# Κύρια Κλάση από Manus
 class EnhancedBot:
     def __init__(self):
         self.api = TelegramAPI(TOKEN)
@@ -61,19 +65,19 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Webhook endpoint (corrected)
-@app.route("/webhook", methods=["POST"])
-def webhook():
+# Webhook route
+@app.post("/webhook")
+async def webhook():
     try:
         data = request.get_json(force=True)
         update = Update.de_json(data, bot)
-        application.create_task(application.process_update(update))
+        await application.process_update(update)
         return "OK", 200
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return f"Error: {str(e)}", 500
 
-# Set webhook manually
+# Ορισμός webhook
 @app.get("/setwebhook")
 def set_webhook():
     try:
@@ -84,6 +88,14 @@ def set_webhook():
     except Exception as e:
         return f"Error setting webhook: {str(e)}", 500
 
-# Entrypoint for gunicorn
+# Εκκίνηση Flask + ενεργοποίηση Telegram app
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    import asyncio
+
+    async def main():
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()  # Required for message loop
+        app.run(host="0.0.0.0", port=8080)
+
+    asyncio.run(main())
