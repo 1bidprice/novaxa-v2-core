@@ -61,13 +61,13 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Webhook endpoint
-@app.post("/webhook")
-async def webhook():
+# Webhook endpoint (corrected)
+@app.route("/webhook", methods=["POST"])
+def webhook():
     try:
         data = request.get_json(force=True)
         update = Update.de_json(data, bot)
-        await application.process_update(update)
+        application.create_task(application.process_update(update))
         return "OK", 200
     except Exception as e:
         logger.error(f"Webhook error: {e}")
