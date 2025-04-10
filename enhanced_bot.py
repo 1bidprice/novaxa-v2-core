@@ -17,12 +17,12 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Εσωτερικά modules
+# Internal modules
 from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# Φόρτωση TOKEN από περιβάλλον
+# Securely load token from environment
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("BOT_TOKEN is not set in environment variables.")
@@ -30,31 +30,27 @@ if not TOKEN:
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
 
-# Logging
+# Logging config
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# Init εφαρμογής Telegram
+# Init Telegram app
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# Εντολές
+# Basic commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to NOVAXA_BOT v2.0 — powered by webhook!")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Status: Online and stable.")
 
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Available commands: /start, /status, /help")
-
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("status", status))
-application.add_handler(CommandHandler("help", help_cmd))
 
-# Κύρια Κλάση από Manus
+# Core enhanced class (from Manus)
 class EnhancedBot:
     def __init__(self):
         self.api = TelegramAPI(TOKEN)
@@ -65,7 +61,7 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Webhook route
+# Webhook endpoint
 @app.post("/webhook")
 async def webhook():
     try:
@@ -77,25 +73,23 @@ async def webhook():
         logger.error(f"Webhook error: {e}")
         return f"Error: {str(e)}", 500
 
-# Ορισμός webhook
+# Set webhook manually (FIXED)
 @app.get("/setwebhook")
 def set_webhook():
     try:
         webhook_url = "https://novaxa-v2-core.onrender.com/webhook"
         bot.delete_webhook()
-        result = bot.set_webhook(url=webhook_url)
-        return f"Webhook set: {result}", 200 if result else 400
+        success = bot.set_webhook(url=webhook_url)
+        if success:
+            logger.info("Webhook set successfully.")
+            return "Webhook set: True", 200
+        else:
+            logger.warning("Failed to set webhook.")
+            return "Webhook set: False", 400
     except Exception as e:
+        logger.error(f"Exception during set_webhook: {e}")
         return f"Error setting webhook: {str(e)}", 500
 
-# Εκκίνηση Flask + ενεργοποίηση Telegram app
+# Entrypoint for gunicorn
 if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()  # Required for message loop
-        app.run(host="0.0.0.0", port=8080)
-
-    asyncio.run(main())
+    app.run(host="0.0.0.0", port=8080)
