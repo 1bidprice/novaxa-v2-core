@@ -77,7 +77,7 @@ async def webhook():
 @app.get("/setwebhook")
 def set_webhook():
     try:
-        webhook_url = "https://novaxa.onrender.com/webhook"
+        webhook_url = "https://novaxa-v2-core.onrender.com/webhook"
         bot.delete_webhook()
         result = bot.set_webhook(url=webhook_url)
         return f"Webhook set: {result}", 200 if result else 400
