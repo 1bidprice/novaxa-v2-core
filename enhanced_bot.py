@@ -3,7 +3,7 @@
 
 """
 NOVAXA_BOT v2.0 — Full Edition (Webhook + Modules)
-Manus Spec — Secure TOKEN loading from environment
+Corrected: Flask app + Application.initialize()
 """
 
 import os
@@ -18,15 +18,15 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Internal modules
+# Εσωτερικά modules
 from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# Load token securely
+# Διασφαλισμένη φόρτωση TOKEN από περιβάλλον
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("BOT_TOKEN is not set.")
+    raise ValueError("BOT_TOKEN is not set in environment variables.")
 
 bot = Bot(token=TOKEN)
 app = Flask(__name__)
@@ -38,10 +38,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("enhanced_bot")
 
-# Create Telegram Application
+# Δημιουργία Telegram Application
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# Basic commands
+# Εντολές
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Welcome to NOVAXA_BOT v2.0 — powered by webhook!")
 
@@ -51,7 +51,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("status", status))
 
-# Core class
+# Κλάση υπηρεσιών
 class EnhancedBot:
     def __init__(self):
         self.api = TelegramAPI(TOKEN)
@@ -62,17 +62,13 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Ensure Application is initialized once at startup
-@app.before_first_request
-def init_application():
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(application.initialize())
-        logger.info("Application initialized successfully.")
-    except Exception as e:
-        logger.error(f"Initialization error: {e}")
+# Initialize application για χρήση με webhooks
+@app.before_request
+def before_request():
+    if not application.running:
+        application.initialize()
 
-# Webhook POST handler
+# Webhook route
 @app.post("/webhook")
 async def webhook():
     try:
@@ -84,7 +80,7 @@ async def webhook():
         logger.error(f"Webhook error: {e}")
         return f"Error: {str(e)}", 500
 
-# Webhook setup endpoint
+# Χειροκίνητη ενεργοποίηση webhook
 @app.get("/setwebhook")
 def set_webhook():
     try:
@@ -101,6 +97,6 @@ def set_webhook():
         logger.error(f"Failed to set webhook: {e}")
         return f"Error setting webhook: {str(e)}", 500
 
-# Entry point
+# Εκκίνηση εφαρμογής
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
