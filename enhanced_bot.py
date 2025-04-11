@@ -3,7 +3,7 @@
 
 """
 NOVAXA_BOT v2.0 — Webhook Edition
-Full Manus Spec with Modules and Webhook Mode for Render
+Manus Spec | Gunicorn Compatible | Render Web Service
 """
 
 import os
@@ -16,27 +16,27 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Internal Modules (Manus Spec)
+# Internal Modules
 from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# Setup Logging
+# Logging setup
 logging.basicConfig(
     format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger("enhanced_bot")
 
-# Get Bot Token
+# Load token
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN not set in environment variables")
 
-# Webhook URL (Render domain)
+# Webhook URL (Render)
 WEBHOOK_URL = "https://novaxa-v2-core.onrender.com/webhook"
 
-# Init Application
+# Build Application
 application: Application = (
     ApplicationBuilder()
     .token(TOKEN)
@@ -44,17 +44,17 @@ application: Application = (
     .build()
 )
 
-# Command Handlers
+# Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Καλώς ήρθες στο NOVAXA_BOT v2.0 (Webhook Powered)!")
+    await update.message.reply_text("Καλώς ήρθες στο NOVAXA_BOT v2.0 (Webhook Ready)!")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Status: Ενεργό και σε λειτουργία (Webhook).")
+    await update.message.reply_text("Κατάσταση: Online και σε λειτουργία με webhook.")
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("status", status))
 
-# Enhanced Core Class (Manus Spec)
+# Core Modules from Manus
 class EnhancedBot:
     def __init__(self):
         self.api = TelegramAPI(TOKEN)
@@ -66,10 +66,10 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Initialize core
+# Initialize NOVAXA Core
 core = EnhancedBot()
 
-# Start Webhook Listener
+# Local Dev (optional) — start webhook if run directly
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     application.run_webhook(
@@ -77,3 +77,6 @@ if __name__ == "__main__":
         port=port,
         webhook_url=WEBHOOK_URL
     )
+
+# Gunicorn entrypoint for Render
+app = application
