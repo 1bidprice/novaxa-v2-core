@@ -2,63 +2,75 @@
 # -*- coding: utf-8 -*-
 
 """
-NOVAXA_BOT v2.0 — Webhook Edition
-Manus Spec | Gunicorn Compatible | Render Web Service
+NOVAXA v2.0 — Enhanced Webhook Bot (Flask)
+Manus Design + FIXED initialize() issue
 """
 
 import os
 import logging
-from telegram import Update
+from flask import Flask, request
+from telegram import Update, Bot
 from telegram.ext import (
     Application,
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
 )
+import asyncio
 
-# Internal Modules
+# === System Modules ===
 from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# Logging setup
+# === Environment Variables ===
+TOKEN = os.environ.get("BOT_TOKEN")
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN is not set.")
+
+WEBHOOK_URL = "https://novaxa-v2-core.onrender.com/webhook"
+
+# === Flask App ===
+app = Flask(__name__)
+bot = Bot(token=TOKEN)
+
+# === Logging ===
 logging.basicConfig(
-    format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
-    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO
 )
 logger = logging.getLogger("enhanced_bot")
 
-# Load token
-TOKEN = os.environ.get("BOT_TOKEN")
-if not TOKEN:
-    raise RuntimeError("BOT_TOKEN not set in environment variables")
+# === Telegram Application ===
+application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# Webhook URL (Render)
-WEBHOOK_URL = "https://novaxa-v2-core.onrender.com/webhook"
 
-# Build Application
-application: Application = (
-    ApplicationBuilder()
-    .token(TOKEN)
-    .webhook_url(WEBHOOK_URL)
-    .build()
-)
+# === Initialize ONCE ===
+@app.before_first_request
+def startup():
+    """Runs once when the Flask app starts"""
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(application.initialize())
+    loop.run_until_complete(bot.delete_webhook())
+    loop.run_until_complete(bot.set_webhook(url=WEBHOOK_URL))
+    logger.info("Bot initialized and webhook set.")
 
-# Commands
+
+# === Telegram Commands ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Καλώς ήρθες στο NOVAXA_BOT v2.0 (Webhook Ready)!")
+    await update.message.reply_text("NOVAXA v2.0 is active — powered by webhook!")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Κατάσταση: Online και σε λειτουργία με webhook.")
+    await update.message.reply_text("Status: Online and stable.")
 
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("status", status))
 
-# Core Modules from Manus
+
+# === Core Class (Manus Architecture) ===
 class EnhancedBot:
     def __init__(self):
         self.api = TelegramAPI(TOKEN)
-        self.processor = DataProcessor()
         self.integration = ServiceIntegration()
         self.notification = NotificationSystem()
         self.monitor = SystemMonitor()
@@ -66,17 +78,20 @@ class EnhancedBot:
         self.user_sessions = {}
         self.user_settings = {}
 
-# Initialize NOVAXA Core
-core = EnhancedBot()
 
-# Local Dev (optional) — start webhook if run directly
+# === Webhook Endpoint ===
+@app.post("/webhook")
+async def webhook():
+    try:
+        data = request.get_json(force=True)
+        update = Update.de_json(data, bot)
+        await application.process_update(update)
+        return "OK", 200
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return f"Error: {str(e)}", 500
+
+
+# === Gunicorn Entrypoint ===
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        webhook_url=WEBHOOK_URL
-    )
-
-# Gunicorn entrypoint for Render
-app = application
+    app.run(host="0.0.0.0", port=8080)
