@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-NOVAXA v2.0 — Enhanced Webhook Bot (Flask)
-Manus Design + FIXED initialize() and start()
+NOVAXA v2.0 — Final Webhook Edition
+Stable Architecture | Telegram + Flask + Gunicorn
 """
 
 import os
@@ -23,49 +23,36 @@ from api import TelegramAPI, DataProcessor
 from integration import ServiceIntegration, NotificationSystem
 from monitor import SystemMonitor, PerformanceTracker
 
-# === Environment ===
+# === Constants ===
 TOKEN = os.environ.get("BOT_TOKEN")
 if not TOKEN:
-    raise RuntimeError("BOT_TOKEN is not set.")
+    raise RuntimeError("BOT_TOKEN is not set in environment variables.")
 
 WEBHOOK_URL = "https://novaxa-v2-core.onrender.com/webhook"
 
+# === Logging ===
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger("novaxa")
+
 # === Flask App ===
-app = Flask(__name__)
+flask_app = Flask(__name__)
 bot = Bot(token=TOKEN)
 
-# === Logging ===
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("enhanced_bot")
-
-# === Application ===
+# === Telegram Application ===
 application: Application = ApplicationBuilder().token(TOKEN).build()
 
-# === Init Core ===
-class EnhancedBot:
-    def __init__(self):
-        self.api = TelegramAPI(TOKEN)
-        self.integration = ServiceIntegration()
-        self.notification = NotificationSystem()
-        self.monitor = SystemMonitor()
-        self.performance = PerformanceTracker()
-        self.user_sessions = {}
-        self.user_settings = {}
+# === Core Initialization Function ===
+async def init_bot():
+    await application.initialize()
+    await application.bot.delete_webhook()
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    logger.info("Webhook set and bot initialized.")
 
-core = EnhancedBot()
-
-# === Commands ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("NOVAXA v2.0 — Ready via Webhook!")
-
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Status: ONLINE and responding.")
-
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("status", status))
-
-# === Webhook endpoint ===
-@app.post("/webhook")
+# === Webhook Endpoint ===
+@flask_app.post("/webhook")
 async def webhook():
     try:
         data = request.get_json(force=True)
@@ -76,18 +63,35 @@ async def webhook():
         logger.error(f"Webhook error: {e}")
         return f"Error: {str(e)}", 500
 
-# === Startup Hook ===
-@app.before_first_request
-def initialize_bot():
-    asyncio.get_event_loop().create_task(async_startup())
+# === Manual Webhook Set Route ===
+@flask_app.get("/setwebhook")
+def set_webhook():
+    try:
+        asyncio.run(init_bot())
+        return "Webhook set successfully.", 200
+    except Exception as e:
+        return f"Webhook setup failed: {e}", 500
 
-async def async_startup():
-    await application.initialize()
-    await application.start()
-    await bot.delete_webhook()
-    await bot.set_webhook(url=WEBHOOK_URL)
-    logger.info("Webhook initialized and bot started.")
+# === Telegram Commands ===
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("NOVAXA v2.0 is now running with webhook!")
 
-# === Gunicorn Entrypoint ===
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Status: NOVAXA v2.0 online and stable.")
+
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("status", status))
+
+# === Core Class (Modular Design) ===
+class EnhancedBot:
+    def __init__(self):
+        self.api = TelegramAPI(TOKEN)
+        self.integration = ServiceIntegration()
+        self.notification = NotificationSystem()
+        self.monitor = SystemMonitor()
+        self.performance = PerformanceTracker()
+        self.user_sessions = {}
+        self.user_settings = {}
+
+# === Entrypoint for Gunicorn ===
+app = flask_app
